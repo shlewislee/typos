@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/mail"
 	"os"
@@ -92,14 +93,19 @@ func serveCmdAction(ctx context.Context, cmd *cli.Command) error {
 	if templatesPath != "" {
 		b, err := os.ReadFile(templatesPath)
 		if err != nil {
-			return err
-		}
-		var cfg TemplatesConfig
-		if err := toml.Unmarshal(b, &cfg); err != nil {
-			return err
-		}
-		for _, t := range cfg.Templates {
-			templates[t.Name] = t
+			if errors.Is(err, os.ErrNotExist) {
+				logger.Warn("Templates file not found, starting with no templates", "path", templatesPath)
+			} else {
+				return err
+			}
+		} else {
+			var cfg TemplatesConfig
+			if err := toml.Unmarshal(b, &cfg); err != nil {
+				return err
+			}
+			for _, t := range cfg.Templates {
+				templates[t.Name] = t
+			}
 		}
 	}
 
