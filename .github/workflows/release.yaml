@@ -1,0 +1,77 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  BINARY_NAME: typos
+  GO_VERSION: "1.25"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build binaries
+        run: |
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X 'main.Version=${{ github.ref_name }}'" -o dist/${{ env.BINARY_NAME }}-linux-amd64 ./cmd/${{ env.BINARY_NAME }}
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X 'main.Version=${{ github.ref_name }}'" -o dist/${{ env.BINARY_NAME }}-server-linux-amd64 ./cmd/${{ env.BINARY_NAME }}-server
+
+      - name: Package artifacts
+        run: |
+          tar -C dist -czf dist/${{ env.BINARY_NAME }}-linux-amd64.tar.gz ${{ env.BINARY_NAME }}-linux-amd64
+          tar -C dist -czf dist/${{ env.BINARY_NAME }}-server-linux-amd64.tar.gz ${{ env.BINARY_NAME }}-server-linux-amd64
+          rm dist/${{ env.BINARY_NAME }}-linux-amd64 dist/${{ env.BINARY_NAME }}-server-linux-amd64
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/${{ env.BINARY_NAME }}-linux-amd64.tar.gz
+            dist/${{ env.BINARY_NAME }}-server-linux-amd64.tar.gz
+          generate_release_notes: true
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            VERSION=${{ github.ref_name }}

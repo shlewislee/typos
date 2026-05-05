@@ -1,0 +1,4 @@
+# [[templates]]
+# name = "example"
+# filename = "/app/templates/example.typ"
+# required_fields = ["name"]

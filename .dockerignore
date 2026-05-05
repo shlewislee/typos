@@ -1,0 +1,13 @@
+.git
+.jj
+.gitignore
+*.md
+.env*
+tmp
+out
+dist
+tests
+bin
+docker/*.yaml
+docker/*.yml
+docker/.env*

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-go/master/schema/compose-spec.json
+# Example compose file for running typos-server.
+services:
+  typos:
+    container_name: typos
+    image: typos:latest
+    ports:
+      - "8888:8888"
+    # You should set TYPOS_DEVICE env var as well.
+    devices:
+      - "/dev/ttyACM0:/dev/ttyACM0"
+      # You may also do this:
+      # - "${TYPOS_DEVICE:-/dev/ttyACM0}:${TYPOS_DEVICE:-/dev/ttyACM0}"
+    volumes:
+      # Optional.
+      # Empty templates.toml with an example will be created in /app/templates
+      - ./templates:/app/templates
+      # Optional.
+      # - ./fonts:/app/fonts
+      # Check .env.example for full env var settings.
+    env_file:
+      - .env
+    restart: unless-stopped
