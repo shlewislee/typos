@@ -4,7 +4,10 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -124,15 +127,15 @@ func NewServer(opts ...Option) *Server {
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	sigCtx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	e := echo.New()
 	if s.Logger != nil {
 		e.Logger = s.Logger
 	}
 
-	s.startWorker(ctx)
+	s.startWorker(sigCtx)
 
 	e.Use(middleware.BodyLimit(20 * 1024 * 1024))
 
@@ -156,5 +159,9 @@ func (s *Server) Start(ctx context.Context) error {
 	RegisterRoutes(e, s.handler)
 
 	e.Logger.Debug("Starting echo server", "host", s.Host)
-	return e.Start(s.Host)
+	sc := echo.StartConfig{
+		Address:         s.Host,
+		GracefulTimeout: 10 * time.Second,
+	}
+	return sc.Start(sigCtx, e)
 }
