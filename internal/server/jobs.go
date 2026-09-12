@@ -46,14 +46,14 @@ type Job struct {
 	JobDir       string                `json:"-"`
 }
 
-func (j *Job) Execute(p *printer.Printer, defaults *printer.ImageOptions, tempDir string) error {
+func (j *Job) Execute(p *printer.Printer, tempDir string) error {
 	switch j.Type {
 	case JobTypeImage:
-		return j.executeImage(p, defaults)
+		return j.executeImage(p)
 	case JobTypeTemplate:
-		return j.executeTemplate(p, defaults, tempDir)
+		return j.executeTemplate(p, tempDir)
 	case JobTypeFile:
-		return j.executeFile(p, defaults, tempDir)
+		return j.executeFile(p, tempDir)
 	default:
 		return errors.New("unknown job type")
 	}
@@ -69,28 +69,24 @@ func (j *Job) Cleanup(logger *slog.Logger, tempDir string) {
 	}
 }
 
-func (j *Job) executeImage(p *printer.Printer, defaults *printer.ImageOptions) error {
-	opts := j.ImageOptions
-	if opts == nil {
-		opts = defaults
-	}
+func (j *Job) executeImage(p *printer.Printer) error {
 	p.Logger.Debug("Printing image", "path", j.ImagePath)
-	return p.PrintImage(j.ImagePath, opts)
+	return p.PrintImage(j.ImagePath, j.ImageOptions)
 }
 
-func (j *Job) executeTemplate(p *printer.Printer, defaults *printer.ImageOptions, tempDir string) error {
+func (j *Job) executeTemplate(p *printer.Printer, tempDir string) error {
 	content, err := os.ReadFile(j.TemplatePath)
 	if err != nil {
 		return err
 	}
-	return j.executeTypst(content, filepath.Base(j.TemplatePath), "printing template", p, defaults, tempDir)
+	return j.executeTypst(content, filepath.Base(j.TemplatePath), "printing template", p, tempDir)
 }
 
-func (j *Job) executeFile(p *printer.Printer, defaults *printer.ImageOptions, tempDir string) error {
-	return j.executeTypst(j.FileContent, "main.typ", "printing raw file", p, defaults, tempDir)
+func (j *Job) executeFile(p *printer.Printer, tempDir string) error {
+	return j.executeTypst(j.FileContent, "main.typ", "printing raw file", p, tempDir)
 }
 
-func (j *Job) executeTypst(content []byte, filename, logMsg string, p *printer.Printer, defaults *printer.ImageOptions, tempDir string) error {
+func (j *Job) executeTypst(content []byte, filename, logMsg string, p *printer.Printer, tempDir string) error {
 	jobDir := filepath.Join(tempDir, j.JobDir)
 	if err := os.MkdirAll(jobDir, 0o755); err != nil {
 		return err
@@ -101,12 +97,8 @@ func (j *Job) executeTypst(content []byte, filename, logMsg string, p *printer.P
 		return err
 	}
 
-	opts := j.ImageOptions
-	if opts == nil {
-		opts = defaults
-	}
 	printOpts := &printer.TypstOptions{
-		ImageOptions: opts,
+		ImageOptions: j.ImageOptions,
 		RenderTypstOptions: &typst.CompileOptions{
 			Input:     j.Inputs,
 			DPI:       p.DPI,

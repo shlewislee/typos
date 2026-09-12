@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -25,29 +24,31 @@ type Handler struct {
 	FontPath  string
 	Logger    *slog.Logger
 
-	jobs        *Jobs
-	printerConn *PrinterConn
+	jobs                *Jobs
+	printerConn         *PrinterConn
+	defaultImageOptions printer.ImageOptions
 
 	fontCache     []string
 	fontCacheErr  error
 	loadFontsOnce sync.Once
 }
 
-func NewHandler(logger *slog.Logger, tempDir, fontPath string, templates map[string]Template, jobs *Jobs, printerConn *PrinterConn) *Handler {
+func NewHandler(logger *slog.Logger, tempDir, fontPath string, templates map[string]Template, jobs *Jobs, printerConn *PrinterConn, defaultImageOptions printer.ImageOptions) *Handler {
 	return &Handler{
-		Logger:      logger,
-		tempDir:     tempDir,
-		FontPath:    fontPath,
-		Templates:   templates,
-		jobs:        jobs,
-		printerConn: printerConn,
+		Logger:              logger,
+		tempDir:             tempDir,
+		FontPath:            fontPath,
+		Templates:           templates,
+		jobs:                jobs,
+		printerConn:         printerConn,
+		defaultImageOptions: defaultImageOptions,
 	}
 }
 
 type TemplateRequest struct {
-	Name         string                `json:"name"`
-	Inputs       map[string]string     `json:"inputs"`
-	ImageOptions *printer.ImageOptions `json:"image_options"`
+	Name         string
+	Inputs       map[string]string
+	ImageOptions *printer.ImageOptions
 }
 
 func RegisterRoutes(e *echo.Echo, h *Handler) {
@@ -71,29 +72,16 @@ func (h *Handler) handleHealth(c *echo.Context) error {
 func (h *Handler) handlePrintTemplate(c *echo.Context) error {
 	h.Logger.Debug("handling template request", "uri", c.Request().RequestURI)
 
-	var req TemplateRequest
-
 	contentType := c.Request().Header.Get("Content-Type")
-	if strings.HasPrefix(contentType, "multipart/form-data") {
-		var err error
-		id, err := h.withJobDir(func(jobID, jobDir string) error {
-			req, err = h.parseMultipartTemplateRequest(c, jobDir)
-			if err != nil {
-				return err
-			}
-			return h.enqueueTemplateJob(req, jobID, jobDir)
-		})
-		if err != nil {
-			return err
-		}
-		return c.JSON(http.StatusAccepted, map[string]string{"id": id})
-	}
-
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid json payload")
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		return echo.NewHTTPError(http.StatusUnsupportedMediaType, "use multipart/form-data")
 	}
 
 	id, err := h.withJobDir(func(jobID, jobDir string) error {
+		req, err := h.parseMultipartTemplateRequest(c, jobDir)
+		if err != nil {
+			return err
+		}
 		return h.enqueueTemplateJob(req, jobID, jobDir)
 	})
 	if err != nil {
@@ -115,9 +103,9 @@ func (h *Handler) parseMultipartTemplateRequest(c *echo.Context, jobDir string) 
 	}
 
 	var err error
-	req.ImageOptions, err = h.parseImageOptions(c)
+	req.ImageOptions, err = h.parseImageOptions(c, h.defaultImageOptions)
 	if err != nil {
-		return req, echo.NewHTTPError(http.StatusBadRequest, "invalid image_options json string")
+		return req, err
 	}
 
 	err = h.handleMultipartUploads(c, jobDir, req.Inputs)
@@ -196,9 +184,9 @@ func (h *Handler) handlePrintFile(c *echo.Context) error {
 		inputs = make(map[string]string)
 	}
 
-	imageOpts, err := h.parseImageOptions(c)
+	imageOpts, err := h.parseImageOptions(c, h.defaultImageOptions)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid image_options json string")
+		return err
 	}
 
 	fontPaths := h.buildFontPaths()
@@ -236,9 +224,9 @@ func (h *Handler) handlePrintImage(c *echo.Context) error {
 	}
 	h.Logger.Debug("processing image upload", "filename", file.Filename)
 
-	imageOpts, err := h.parseImageOptions(c)
+	imageOpts, err := h.parseImageOptions(c, h.defaultImageOptions)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid image_options json string")
+		return err
 	}
 
 	id, err := h.withJobDir(func(jobID, jobDir string) error {
@@ -428,35 +416,38 @@ func (h *Handler) handleMultipartUploads(c *echo.Context, jobDir string, inputs 
 	return nil
 }
 
-func (h *Handler) parseImageOptions(c *echo.Context) (*printer.ImageOptions, error) {
+func (h *Handler) parseImageOptions(c *echo.Context, defaults printer.ImageOptions) (*printer.ImageOptions, error) {
+	opts := defaults
+
 	rotateStr := c.FormValue("rotate_image")
-	ditherStr := c.FormValue("dither_method")
-	gammaStr := c.FormValue("gamma")
-
-	if rotateStr == "" && ditherStr == "" && gammaStr == "" {
-		return nil, nil
-	}
-
-	opts := &printer.ImageOptions{}
 	if rotateStr != "" {
-		opts.ShouldRotate = rotateStr == "true" || rotateStr == "1"
+		switch rotateStr {
+		case "true", "1":
+			opts.ShouldRotate = true
+		case "false", "0":
+			opts.ShouldRotate = false
+		default:
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid rotate_image value")
+		}
 	}
+
+	ditherStr := c.FormValue("dither_method")
 	if ditherStr != "" {
 		d, err := strconv.Atoi(ditherStr)
-		if err != nil {
-			return nil, err
-		}
-		if d < 0 || d > 2 {
-			return nil, fmt.Errorf("invalid dither_method: %d", d)
+		if err != nil || d < 0 || d > 2 {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "dither_method must be an integer between 0 and 2")
 		}
 		opts.DitherMethod = printer.DitherMethod(d)
 	}
+
+	gammaStr := c.FormValue("gamma")
 	if gammaStr != "" {
 		g, err := strconv.ParseFloat(gammaStr, 64)
 		if err != nil {
-			return nil, err
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid gamma value")
 		}
 		opts.Gamma = g
 	}
-	return opts, nil
+
+	return &opts, nil
 }

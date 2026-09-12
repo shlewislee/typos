@@ -38,7 +38,7 @@ func (s *Server) processJob(job *Job) {
 	}()
 
 	err := s.printerConn.Execute(func(p *printer.Printer) error {
-		return job.Execute(p, &s.DefaultImageOptions, s.tempDir)
+		return job.Execute(p, s.tempDir)
 	})
 	if err != nil {
 		s.jobs.Update(job.ID, StatusFailed, err.Error())

@@ -121,7 +121,7 @@ func NewServer(opts ...Option) *Server {
 	}
 
 	s.jobs = NewJobs(s.MaxJobs)
-	s.handler = NewHandler(s.Logger, s.tempDir, s.FontPath, s.Templates, s.jobs, s.printerConn)
+	s.handler = NewHandler(s.Logger, s.tempDir, s.FontPath, s.Templates, s.jobs, s.printerConn, s.DefaultImageOptions)
 
 	return s
 }
