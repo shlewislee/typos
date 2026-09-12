@@ -12,6 +12,8 @@ Typst-to-ESC/POS bridge for thermal printers. CLI and REST server. Linux only.
 - Template system (TOML) with multipart file uploads
 - Every flag configurable via `TYPOS_*` env vars
 
+![](docs/show.jpeg)
+
 ## Requirements
 
 - Linux with access to the serial device (e.g. `dialout` group membership)
