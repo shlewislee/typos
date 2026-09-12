@@ -7,6 +7,24 @@
 
 Typst-to-ESC/POS bridge for thermal printers. CLI and REST server. Linux only.
 
+- Render Typst documents or images to dithered ESC/POS raster
+- REST server with async job queue
+- Template system (TOML) with multipart file uploads
+- Every flag configurable via `TYPOS_*` env vars
+
+## Requirements
+
+- Linux with access to the serial device (e.g. `dialout` group membership)
+- [`typst`](https://github.com/typst/typst) binary on `PATH` for document rendering (already included in the Docker image)
+
+## Build from source
+
+```bash
+go build -o bin/typos ./cmd/typos                # CLI
+go build -o bin/typos-server ./cmd/typos-server  # server
+# or: just build / just build server
+```
+
 ## CLI
 
 Pre-built binaries are available on the [releases page](https://github.com/shlewislee/typos/releases).
@@ -57,6 +75,8 @@ curl -X POST http://localhost:8888/print/template -F "name=receipt" -F 'inputs={
 curl -X POST http://localhost:8888/print/image -F "file=@photo.png"
 ```
 
+> **Security:** The server has no authentication and accepts arbitrary file uploads. Bind to localhost or keep it on a trusted network only.
+
 ## Configuration
 
 See [`docker/.env.example`](docker/.env.example) for a reference file.
@@ -79,11 +99,14 @@ Dither methods: `0`=Atkinson, `1`=FloydSteinberg, `2`=StevenPigeon.
 
 ## LLM Disclosure
 
-As the presence of `AGENTS.md` suggests, a significant part of this codebase was written by LLMs.
+The core printer logic and CLI were entirely hand-written(and will remain so), while the REST API was largely developed with AI under the author's direction.
 
-I originally hand-wrote the core printer/Typst logic and the CLI. The REST API wasn't actually in the plan, but after a few days of using the CLI I realized I wanted one. Since I'd already had all the fun I could have with the project, I didn't feel like writing yet another boilerplate REST API.
+<details>
+  <summary>Details</summary>
 
-So I tried something I'd been avoiding: coding agents. I started with the Gemini CLI and eventually moved to Opencode.
+As the presence of `AGENTS.md` suggests, a significant part of this codebase was written by AI via Opencode.
+
+I originally hand-wrote the core printer/Typst logic and the CLI. The REST API wasn't actually in the plan, but after a few days of using the CLI I realized I wanted one. Since I'd already had all the fun I could have with the project, I didn't feel like writing yet another REST API. So I tried something I'd been avoiding: AI tools. I eventually settled on Opencode.
 
 Here is the list of models used for the server implementation (in order of usage):
 
@@ -96,6 +119,8 @@ Here is the list of models used for the server implementation (in order of usage
 I didn't particularly enjoy the process, and it definitely took more time than it saved, but I tried my best to keep the code aligned with my standards. All structural and design decisions were made by me.
 
 I've worked to avoid shipping "AI slop," but whether I succeeded depends on your perspective. The underlying printer logic and CLI remain 100% hand-written.
+
+</details>
 
 ## License
 
