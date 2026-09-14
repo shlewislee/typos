@@ -99,6 +99,11 @@ See [`docker/.env.example`](docker/.env.example) for a reference file.
 
 Dither methods: `0`=Atkinson, `1`=FloydSteinberg, `2`=StevenPigeon.
 
+## Planned
+
+- aarch64 build/docker image
+- rudimentary auth for HTTP server
+
 ## LLM Disclosure
 
 The core printer logic and CLI were entirely hand-written(and will remain so), while the REST API was largely developed with AI under the author's direction.
