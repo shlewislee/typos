@@ -161,6 +161,7 @@ func (s *Server) Start(ctx context.Context) error {
 	e.Logger.Debug("Starting echo server", "host", s.Host)
 	sc := echo.StartConfig{
 		Address:         s.Host,
+		HideBanner:      true,
 		GracefulTimeout: 10 * time.Second,
 	}
 	return sc.Start(sigCtx, e)
