@@ -18,7 +18,7 @@ require (
 
 require (
 	github.com/creack/goselect v0.1.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
+	github.com/matoous/go-nanoid/v2 v2.1.0 // indirect
 	github.com/smasher164/xid v0.1.2 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/text v0.36.0 // indirect

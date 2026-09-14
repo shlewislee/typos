@@ -28,7 +28,11 @@ func (pc *PrinterConn) Execute(fn func(*printer.Printer) error) (err error) {
 		return errors.New("printer offline")
 	}
 
-	return fn(pc.p)
+	if err = fn(pc.p); err != nil {
+		pc.connected = false
+		return err
+	}
+	return nil
 }
 
 func (pc *PrinterConn) Reconnect() (s string, err error) {

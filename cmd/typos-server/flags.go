@@ -1,6 +1,10 @@
 package main
 
-import "github.com/urfave/cli/v3"
+import (
+	"errors"
+
+	"github.com/urfave/cli/v3"
+)
 
 func NewTemplatesFlag() cli.Flag {
 	return &cli.StringFlag{
@@ -43,5 +47,11 @@ func NewMaxJobsFlag() cli.Flag {
 		Value:   1000,
 		Usage:   "Maximum number of jobs to keep in history.",
 		Sources: cli.EnvVars("TYPOS_MAX_JOBS"),
+		Validator: func(v int) error {
+			if v < 1 {
+				return errors.New("max-jobs must be at least 1")
+			}
+			return nil
+		},
 	}
 }

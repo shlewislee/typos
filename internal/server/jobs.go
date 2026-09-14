@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/google/uuid"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/shlewislee/typos/internal/printer"
 	"github.com/shlewislee/typos/internal/typst"
 )
@@ -111,7 +111,10 @@ func (j *Job) executeTypst(content []byte, filename, logMsg string, p *printer.P
 }
 
 func generateID() string {
-	return uuid.NewString()[:5]
+	const idCharList = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	id, _ := gonanoid.Generate(idCharList, 6)
+
+	return id
 }
 
 type Jobs struct {
@@ -166,6 +169,13 @@ func (j *Jobs) Update(id string, status JobStatus, errMsg string) {
 	job.Status = status
 	if errMsg != "" {
 		job.Error = errMsg
+	}
+
+	if status == StatusDone || status == StatusFailed {
+		job.FileContent = nil
+		job.Inputs = nil
+		job.ImageOptions = nil
+		job.FontPaths = nil
 	}
 }
 
