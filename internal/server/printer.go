@@ -29,7 +29,9 @@ func (pc *PrinterConn) Execute(fn func(*printer.Printer) error) (err error) {
 	}
 
 	if err = fn(pc.p); err != nil {
-		pc.connected = false
+		if _, statusErr := pc.p.Status(); statusErr != nil {
+			pc.connected = false
+		}
 		return err
 	}
 	return nil
