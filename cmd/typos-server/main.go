@@ -14,7 +14,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-var version string = "dev"
+var Version string = "dev"
 
 func main() {
 	cmd := newMainCmd()
@@ -50,7 +50,7 @@ func newMainCmd() *cli.Command {
 			slog.SetDefault(logger)
 			return ctx, nil
 		},
-		Version: version,
+		Version: Version,
 		Commands: []*cli.Command{
 			{
 				Name:        "serve",

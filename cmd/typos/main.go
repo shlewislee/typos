@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-var version string = "dev"
+var Version string = "dev"
 
 func main() {
 	cmd := newMainCmd()
@@ -46,7 +46,7 @@ func newMainCmd() *cli.Command {
 			slog.SetDefault(h.logger)
 			return ctx, nil
 		},
-		Version: version,
+		Version: Version,
 		// ---
 		// Flags start here
 		// ---
